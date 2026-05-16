@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Head from "next/head";
 import ChatWindow from "../components/ChatWindow";
 import MessageInput from "../components/MessageInput";
@@ -89,30 +89,72 @@ export default function Home() {
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
       </Head>
 
-      <main
-        className="bg-gray-200 flex items-center justify-center"
-        style={{ height: "100dvh", padding: "16px" }}
-      >
-        <div
-          className="w-full md:max-w-lg flex flex-col overflow-hidden bg-white rounded-3xl shadow-2xl"
-          style={{ height: "100%", maxHeight: "880px" }}
-        >
+      <main style={{
+        position: "fixed",
+        inset: 0,
+        background: "#e5e7eb",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "12px",
+      }}>
+        <div style={{
+          width: "100%",
+          height: "100%",
+          maxWidth: "480px",
+          maxHeight: "880px",
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
+          borderRadius: "24px",
+          boxShadow: "0 25px 50px rgba(0,0,0,0.15)",
+          background: "#fff",
+        }}>
+
           {/* Header */}
-          <div className="flex items-center gap-3 px-5 py-4 bg-white border-b border-gray-100 shadow-sm shrink-0">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-600 to-violet-600 flex items-center justify-center text-lg shrink-0">
-              👩‍💼
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="font-bold text-gray-900 text-sm leading-tight truncate">
+          <div style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "12px",
+            padding: "14px 20px",
+            background: "#fff",
+            borderBottom: "1px solid #f0f0f0",
+            flexShrink: 0,
+          }}>
+            <div style={{
+              width: "40px", height: "40px",
+              borderRadius: "50%",
+              background: "linear-gradient(135deg, #4f46e5, #7c3aed)",
+              display: "flex", alignItems: "center",
+              justifyContent: "center",
+              fontSize: "18px", flexShrink: 0,
+            }}>👩‍💼</div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{
+                fontWeight: 700, fontSize: "14px",
+                color: "#111827", margin: 0,
+                overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+              }}>
                 {config.name}
               </p>
-              <div className="flex items-center gap-1.5 mt-0.5">
-                <span className="w-1.5 h-1.5 bg-green-400 rounded-full status-pulse shrink-0" />
-                <span className="text-xs text-gray-400">Online · Replies instantly</span>
+              <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "2px" }}>
+                <span style={{
+                  width: "6px", height: "6px",
+                  background: "#4ade80", borderRadius: "50%",
+                  display: "inline-block", flexShrink: 0,
+                }} />
+                <span style={{ fontSize: "11px", color: "#9ca3af" }}>
+                  Online · Replies instantly
+                </span>
               </div>
             </div>
-            <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
-              <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div style={{
+              width: "32px", height: "32px",
+              borderRadius: "50%", background: "#f3f4f6",
+              display: "flex", alignItems: "center",
+              justifyContent: "center", flexShrink: 0,
+            }}>
+              <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="#9ca3af">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                   d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -120,6 +162,7 @@ export default function Home() {
             </div>
           </div>
 
+          {/* Chat — takes all remaining space */}
           <ChatWindow
             messages={messages}
             isTyping={isTyping}
@@ -127,7 +170,9 @@ export default function Home() {
             onSuggestion={handleSend}
           />
 
+          {/* Input — fixed at bottom */}
           <MessageInput onSend={handleSend} disabled={isTyping} />
+
         </div>
       </main>
     </>
