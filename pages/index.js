@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import Head from "next/head";
-import SetupPanel from "../components/SetupPanel";
 import ChatWindow from "../components/ChatWindow";
 import MessageInput from "../components/MessageInput";
 
@@ -20,7 +19,7 @@ const INITIAL_MESSAGES = [
 ];
 
 export default function Home() {
-  const [config, setConfig] = useState(DEFAULT_CONFIG);
+  const [config] = useState(DEFAULT_CONFIG);
   const [messages, setMessages] = useState(INITIAL_MESSAGES);
   const [isTyping, setIsTyping] = useState(false);
   const [chatHistory, setChatHistory] = useState([]);
@@ -60,7 +59,10 @@ export default function Home() {
       const data = await res.json();
 
       if (data.error) {
-        setMessages((prev) => [...prev, { role: "system", content: "⚠️ Error: " + data.error }]);
+        setMessages((prev) => [...prev, {
+          role: "system",
+          content: "⚠️ দুঃখিত, একটু সমস্যা হয়েছে। আবার চেষ্টা করুন।",
+        }]);
       } else {
         if (data.orderData) setPendingOrder(data.orderData);
 
@@ -80,7 +82,10 @@ export default function Home() {
         setChatHistory((prev) => [...prev, { role: "assistant", content: data.reply }]);
       }
     } catch (err) {
-      setMessages((prev) => [...prev, { role: "system", content: "⚠️ Connection error. Try again." }]);
+      setMessages((prev) => [...prev, {
+        role: "system",
+        content: "⚠️ দুঃখিত, একটু সমস্যা হয়েছে। আবার চেষ্টা করুন।",
+      }]);
     }
 
     setIsTyping(false);
@@ -89,61 +94,51 @@ export default function Home() {
   return (
     <>
       <Head>
-        <title>AI DM Agent — {config.name}</title>
+        <title>{config.name} — Customer Support</title>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
 
-      <main className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-5">
-
-        <p className="text-xs text-gray-400 uppercase tracking-widest font-semibold mb-4">
-          AI-Powered Customer Agent
-        </p>
+      <main className="min-h-screen bg-gray-100 flex flex-col items-center justify-center p-4">
 
         <div
-          className="w-full max-w-lg flex flex-col rounded-3xl overflow-hidden shadow-2xl bg-white"
-          style={{ height: "90vh", maxHeight: "860px" }}
+          className="w-full max-w-xl flex flex-col rounded-xl overflow-hidden shadow-2xl bg-gray-50"
+          style={{ height: "100dvh", maxHeight: "880px" }}
         >
 
           {/* Header */}
-          <div className="flex items-center gap-4 px-8 py-5 bg-gradient-to-r from-indigo-600 to-violet-600">
-            <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center text-2xl shrink-0">
+          <div className="flex items-center gap-4 px-6 h-16 py-4 bg-white border-b border-gray-100 shadow-sm">
+            <div className="translate-x-2 w-10 h-10 rounded-full bg-gradient-to-br from-indigo-600 to-violet-600 flex items-center justify-center text-xl shrink-0">
               👩‍💼
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-white font-bold text-base leading-tight truncate">
-                {config.name || "AI DM Agent"}
+              <p className="font-bold text-gray-900 text-sm leading-tight truncate">
+                {config.name}
               </p>
-              <div className="flex items-center gap-2 mt-1">
-                <span className="w-2 h-2 bg-green-400 rounded-full inline-block status-pulse shrink-0" />
-                <span className="text-white/70 text-xs">Online · Replies instantly</span>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <span className="w-2 h-2 bg-green-400 rounded-full status-pulse shrink-0" />
+                <span className="text-xs text-gray-400">Online · Replies instantly</span>
               </div>
             </div>
-            <button
-              onClick={() => {
-                setMessages(INITIAL_MESSAGES);
-                setChatHistory([]);
-                setPendingOrder(null);
-              }}
-              className="bg-white/15 hover:bg-white/25 transition-colors text-white text-xs font-medium px-4 py-2 rounded-xl border border-white/10 shrink-0"
-            >
-              Clear
-            </button>
+            <div className="-translate-x-3 w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
+              <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+            </div>
           </div>
 
-          <SetupPanel config={config} onChange={setConfig} />
           <ChatWindow
             messages={messages}
             isTyping={isTyping}
             config={config}
             products={products}
+            onSuggestion={handleSend}
           />
+
           <MessageInput onSend={handleSend} disabled={isTyping} />
 
         </div>
-
-        <p className="mt-4 text-xs text-gray-300">
-          Powered by AI · Built for Bangladeshi businesses
-        </p>
 
       </main>
     </>

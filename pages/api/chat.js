@@ -81,36 +81,48 @@ YOUR JOB:
 
     const data = await response.json();
 
+    // Handle rate limit
+    if (response.status === 429) {
+      return res.status(200).json({
+        reply: "একটু ব্যস্ত আছি, ৩০ সেকেন্ড পর আবার চেষ্টা করুন। 🙏",
+        orderData: null,
+        isConfirmed: false,
+      });
+    }
+
     if (data.error) {
       return res.status(400).json({ error: data.error.message });
     }
 
     const reply = data.choices?.[0]?.message?.content || "Sorry, no response.";
 
-    // Extract order data if present
-    const orderMatch = reply.match(/ORDERDATA:({.+})/);
+    // Flexible order data extraction
     let orderData = null;
+    const orderMatch = reply.match(/ORDERDATA:\s*({[\s\S]+?})/);
     if (orderMatch) {
       try {
         orderData = JSON.parse(orderMatch[1]);
       } catch (e) {
-        console.error("Order parse error:", e);
+        const product  = reply.match(/"product"\s*:\s*"([^"]+)"/)?.[1];
+        const quantity = reply.match(/"quantity"\s*:\s*"([^"]+)"/)?.[1];
+        const name     = reply.match(/"name"\s*:\s*"([^"]+)"/)?.[1];
+        const phone    = reply.match(/"phone"\s*:\s*"([^"]+)"/)?.[1];
+        const address  = reply.match(/"address"\s*:\s*"([^"]+)"/)?.[1];
+        const total    = reply.match(/"total"\s*:\s*"([^"]+)"/)?.[1];
+        if (product && name && phone) {
+          orderData = { product, quantity, name, phone, address, total };
+        }
       }
     }
 
     const isConfirmed = reply.includes("ORDER_CONFIRMED");
 
-    // Clean reply — remove ORDERDATA and ORDER_CONFIRMED tags
     const cleanReply = reply
-      .replace(/ORDERDATA:{.+}/, "")
+      .replace(/ORDERDATA:\s*{[\s\S]+?}/, "")
       .replace("ORDER_CONFIRMED", "")
       .trim();
 
-    return res.status(200).json({
-      reply: cleanReply,
-      orderData,
-      isConfirmed,
-    });
+    return res.status(200).json({ reply: cleanReply, orderData, isConfirmed });
 
   } catch (error) {
     return res.status(500).json({ error: "Failed to contact AI" });
