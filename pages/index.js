@@ -24,18 +24,6 @@ export default function Home() {
   const [isTyping, setIsTyping] = useState(false);
   const [chatHistory, setChatHistory] = useState([]);
   const [pendingOrder, setPendingOrder] = useState(null);
-  const [products, setProducts] = useState([]);
-
-  useEffect(() => {
-    async function loadProducts() {
-      try {
-        const res = await fetch("/api/products");
-        const data = await res.json();
-        if (data.products) setProducts(data.products);
-      } catch (err) {}
-    }
-    loadProducts();
-  }, []);
 
   const handleSend = async (text) => {
     const userMsg = { role: "user", content: text };
@@ -79,7 +67,10 @@ export default function Home() {
 
         const aiMsg = { role: "assistant", content: data.reply };
         setMessages((prev) => [...prev, aiMsg]);
-        setChatHistory((prev) => [...prev, { role: "assistant", content: data.reply }]);
+        setChatHistory((prev) => [...prev, {
+          role: "assistant",
+          content: data.reply,
+        }]);
       }
     } catch (err) {
       setMessages((prev) => [...prev, {
@@ -95,19 +86,17 @@ export default function Home() {
     <>
       <Head>
         <title>{config.name} — Customer Support</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
       </Head>
 
-      <main className="min-h-screen bg-gray-100 flex flex-col items-center justify-center p-4">
-
-        <div
-          className="w-full max-w-xl flex flex-col rounded-xl overflow-hidden shadow-2xl bg-gray-50"
-          style={{ height: "100dvh", maxHeight: "880px" }}
-        >
+      {/* Gray background visible top and bottom as gap */}
+      <main className="min-h-screen bg-gray-200 flex items-center justify-center py-4 px-4">
+        <div className="w-full h-full md:max-w-lg flex flex-col overflow-hidden bg-white rounded-3xl shadow-2xl"
+          style={{ height: "calc(100vh - 32px)", maxHeight: "880px" }}>
 
           {/* Header */}
-          <div className="flex items-center gap-4 px-6 h-16 py-4 bg-white border-b border-gray-100 shadow-sm">
-            <div className="translate-x-2 w-10 h-10 rounded-full bg-gradient-to-br from-indigo-600 to-violet-600 flex items-center justify-center text-xl shrink-0">
+          <div className="flex items-center gap-3 px-5 py-4 bg-white border-b border-gray-100 shadow-sm shrink-0">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-600 to-violet-600 flex items-center justify-center text-lg shrink-0">
               👩‍💼
             </div>
             <div className="flex-1 min-w-0">
@@ -115,11 +104,11 @@ export default function Home() {
                 {config.name}
               </p>
               <div className="flex items-center gap-1.5 mt-0.5">
-                <span className="w-2 h-2 bg-green-400 rounded-full status-pulse shrink-0" />
+                <span className="w-1.5 h-1.5 bg-green-400 rounded-full status-pulse shrink-0" />
                 <span className="text-xs text-gray-400">Online · Replies instantly</span>
               </div>
             </div>
-            <div className="-translate-x-3 w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
+            <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
               <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                   d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -132,14 +121,12 @@ export default function Home() {
             messages={messages}
             isTyping={isTyping}
             config={config}
-            products={products}
             onSuggestion={handleSend}
           />
 
           <MessageInput onSend={handleSend} disabled={isTyping} />
 
         </div>
-
       </main>
     </>
   );
