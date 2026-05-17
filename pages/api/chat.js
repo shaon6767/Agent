@@ -1,5 +1,87 @@
 import { getProducts, formatProductsForAI } from "../../lib/sheets";
 
+async function callAI(apiType, apiKey, systemPrompt, messages) {
+  try {
+    if (apiType === "openrouter") {
+      const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${apiKey}`,
+          "HTTP-Referer": "https://ai-dm-agent.vercel.app",
+          "X-Title": "AI DM Agent",
+        },
+        body: JSON.stringify({
+          model: "meta-llama/llama-3.3-70b-instruct:free",
+          max_tokens: 400,
+          temperature: 0.7,
+          messages: [
+            { role: "system", content: systemPrompt },
+            ...messages,
+          ],
+        }),
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      return data.choices?.[0]?.message?.content || null;
+    }
+
+    if (apiType === "groq") {
+      const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: "llama-3.3-70b-versatile",
+          max_tokens: 400,
+          temperature: 0.7,
+          messages: [
+            { role: "system", content: systemPrompt },
+            ...messages,
+          ],
+        }),
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      if (data.error) return null;
+      return data.choices?.[0]?.message?.content || null;
+    }
+  } catch (e) {
+    return null;
+  }
+  return null;
+}
+
+function extractOrderData(reply) {
+  let orderData = null;
+  const orderMatch = reply.match(/ORDERDATA:\s*({[\s\S]+?})/);
+  if (orderMatch) {
+    try {
+      orderData = JSON.parse(orderMatch[1]);
+    } catch (e) {
+      const product  = reply.match(/"product"\s*:\s*"([^"]+)"/)?.[1];
+      const quantity = reply.match(/"quantity"\s*:\s*"([^"]+)"/)?.[1];
+      const name     = reply.match(/"name"\s*:\s*"([^"]+)"/)?.[1];
+      const phone    = reply.match(/"phone"\s*:\s*"([^"]+)"/)?.[1];
+      const address  = reply.match(/"address"\s*:\s*"([^"]+)"/)?.[1];
+      const total    = reply.match(/"total"\s*:\s*"([^"]+)"/)?.[1];
+      if (product && name && phone) {
+        orderData = { product, quantity, name, phone, address, total };
+      }
+    }
+  }
+  return orderData;
+}
+
+function cleanReply(reply) {
+  return reply
+    .replace(/ORDERDATA:\s*{[\s\S]+?}/, "")
+    .replace("ORDER_CONFIRMED", "")
+    .trim();
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
@@ -9,11 +91,6 @@ export default async function handler(req, res) {
 
   if (!messages || !Array.isArray(messages)) {
     return res.status(400).json({ error: "Invalid request body" });
-  }
-
-  const apiKey = process.env.GROQ_API_KEY;
-  if (!apiKey) {
-    return res.status(500).json({ error: "API key not configured" });
   }
 
   const products = await getProducts();
@@ -56,7 +133,7 @@ ORDER COLLECTION RULES:
 - If buyer says না/no/nah/cancel or anything negative: say "ঠিক আছে, কোনো সমস্যা নেই। অন্য কিছু জানতে চাইলে বলুন 😊" then STOP asking about the order
 - NEVER repeat the order confirmation question after the buyer said no
 - NEVER ask for confirmation more than once
-- If buyer asks to see their order again, review their order, or says "order dekhao/order ta dekhan/order confirm korte chai" — show the ORDERDATA again with the same details and ask for confirmation
+- If buyer asks to see their order again or says "order dekhao/order ta dekhan" — show the ORDERDATA again with same details
 - Keep track of the order details throughout the conversation
 
 YOUR JOB:
@@ -66,115 +143,37 @@ YOUR JOB:
 - Never reveal you are an AI unless directly asked
 - Guide interested buyers through the order process`;
 
-  try {
-    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
-        max_tokens: 400,
-        temperature: 0.7,
-        messages: [
-          { role: "system", content: systemPrompt },
-          ...messages,
-        ],
-      }),
-    });
+  // 3 layer fallback — tries each one until a reply comes back
+  const layers = [
+    { type: "openrouter", key: process.env.OPENROUTER_API_KEY },
+    { type: "groq",       key: process.env.GROQ_API_KEY },
+    { type: "groq",       key: process.env.GROQ_API_KEY_2 },
+  ];
 
-    const data = await response.json();
+  let reply = null;
 
-    if (response.status === 429) {
-      // Wait 5 seconds and retry once automatically
-      await new Promise((resolve) => setTimeout(resolve, 5000));
-
-      const retryResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model: "llama-3.3-8b-instant",
-          max_tokens: 400,
-          temperature: 0.7,
-          messages: [
-            { role: "system", content: systemPrompt },
-            ...messages,
-          ],
-        }),
-      });
-
-      const retryData = await retryResponse.json();
-
-      if (retryResponse.status === 429 || retryData.error) {
-        return res.status(200).json({
-          reply: "একটু ব্যস্ত আছি, ৩০ সেকেন্ড পর আবার চেষ্টা করুন। 🙏",
-          orderData: null,
-          isConfirmed: false,
-        });
-      }
-
-      const retryReply = retryData.choices?.[0]?.message?.content || "Sorry, no response.";
-
-      let retryOrderData = null;
-      const retryOrderMatch = retryReply.match(/ORDERDATA:\s*({[\s\S]+?})/);
-      if (retryOrderMatch) {
-        try {
-          retryOrderData = JSON.parse(retryOrderMatch[1]);
-        } catch (e) { }
-      }
-
-      const retryIsConfirmed = retryReply.includes("ORDER_CONFIRMED");
-      const cleanRetryReply = retryReply
-        .replace(/ORDERDATA:\s*{[\s\S]+?}/, "")
-        .replace("ORDER_CONFIRMED", "")
-        .trim();
-
-      return res.status(200).json({
-        reply: cleanRetryReply,
-        orderData: retryOrderData,
-        isConfirmed: retryIsConfirmed,
-      });
-    }
-
-    if (data.error) {
-      return res.status(400).json({ error: data.error.message });
-    }
-
-    const reply = data.choices?.[0]?.message?.content || "Sorry, no response.";
-
-    // Flexible order data extraction
-    let orderData = null;
-    const orderMatch = reply.match(/ORDERDATA:\s*({[\s\S]+?})/);
-    if (orderMatch) {
-      try {
-        orderData = JSON.parse(orderMatch[1]);
-      } catch (e) {
-        const product = reply.match(/"product"\s*:\s*"([^"]+)"/)?.[1];
-        const quantity = reply.match(/"quantity"\s*:\s*"([^"]+)"/)?.[1];
-        const name = reply.match(/"name"\s*:\s*"([^"]+)"/)?.[1];
-        const phone = reply.match(/"phone"\s*:\s*"([^"]+)"/)?.[1];
-        const address = reply.match(/"address"\s*:\s*"([^"]+)"/)?.[1];
-        const total = reply.match(/"total"\s*:\s*"([^"]+)"/)?.[1];
-        if (product && name && phone) {
-          orderData = { product, quantity, name, phone, address, total };
-        }
-      }
-    }
-
-    const isConfirmed = reply.includes("ORDER_CONFIRMED");
-
-    const cleanReply = reply
-      .replace(/ORDERDATA:\s*{[\s\S]+?}/, "")
-      .replace("ORDER_CONFIRMED", "")
-      .trim();
-
-    return res.status(200).json({ reply: cleanReply, orderData, isConfirmed });
-
-  } catch (error) {
-    return res.status(500).json({ error: "Failed to contact AI" });
+  for (const layer of layers) {
+    if (!layer.key) continue;
+    reply = await callAI(layer.type, layer.key, systemPrompt, messages);
+    if (reply) break;
+    await new Promise((r) => setTimeout(r, 2000));
   }
+
+  if (!reply) {
+    return res.status(200).json({
+      reply: "একটু ব্যস্ত আছি, আবার চেষ্টা করুন। 🙏",
+      orderData: null,
+      isConfirmed: false,
+    });
+  }
+
+  const orderData = extractOrderData(reply);
+  const isConfirmed = reply.includes("ORDER_CONFIRMED");
+  const clean = cleanReply(reply);
+
+  return res.status(200).json({
+    reply: clean,
+    orderData,
+    isConfirmed,
+  });
 }
