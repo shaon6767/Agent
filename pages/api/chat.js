@@ -61,12 +61,12 @@ function extractOrderData(reply) {
     try {
       orderData = JSON.parse(orderMatch[1]);
     } catch (e) {
-      const product  = reply.match(/"product"\s*:\s*"([^"]+)"/)?.[1];
+      const product = reply.match(/"product"\s*:\s*"([^"]+)"/)?.[1];
       const quantity = reply.match(/"quantity"\s*:\s*"([^"]+)"/)?.[1];
-      const name     = reply.match(/"name"\s*:\s*"([^"]+)"/)?.[1];
-      const phone    = reply.match(/"phone"\s*:\s*"([^"]+)"/)?.[1];
-      const address  = reply.match(/"address"\s*:\s*"([^"]+)"/)?.[1];
-      const total    = reply.match(/"total"\s*:\s*"([^"]+)"/)?.[1];
+      const name = reply.match(/"name"\s*:\s*"([^"]+)"/)?.[1];
+      const phone = reply.match(/"phone"\s*:\s*"([^"]+)"/)?.[1];
+      const address = reply.match(/"address"\s*:\s*"([^"]+)"/)?.[1];
+      const total = reply.match(/"total"\s*:\s*"([^"]+)"/)?.[1];
       if (product && name && phone) {
         orderData = { product, quantity, name, phone, address, total };
       }
@@ -120,21 +120,37 @@ STOCK RULES:
 - Suggest similar in-stock products if possible
 
 ORDER COLLECTION RULES:
-- When customer wants to buy, collect these one by one:
-  1. Which product and quantity
-  2. Full name
-  3. Phone number
-  4. Delivery address
-- After collecting all 4, show a summary and ask for confirmation ONCE
-- When showing summary, output a JSON block EXACTLY like this on its own line:
+- When customer wants to buy, collect these STRICTLY one by one in this exact order:
+  STEP 1: Ask which product and how many
+  STEP 2: Ask for full name
+  STEP 3: Ask for phone number  
+  STEP 4: Ask for delivery address
+- Do NOT ask for confirmation until ALL 4 steps are complete
+- After getting address (step 4), IMMEDIATELY show the full order summary like this:
+
+"আপনার অর্ডারের বিবরণ:
+🛍 পণ্য: [product]
+📦 পরিমাণ: [quantity]
+👤 নাম: [name]
+📞 ফোন: [phone]
+📍 ঠিকানা: [address]
+💰 মোট: [total]tk
+
+সব কিছু ঠিক আছে? নাকি কোনো তথ্য পরিবর্তন করতে চান?"
+
+- Then on the SAME message output the ORDERDATA:
   ORDERDATA:{"product":"ACTUAL_PRODUCT","quantity":"ACTUAL_QTY","name":"ACTUAL_NAME","phone":"ACTUAL_PHONE","address":"ACTUAL_ADDRESS","total":"ACTUAL_TOTAL"}
-- After showing summary, ask ONCE: "আপনি কি অর্ডার confirm করতে চান?"
-- If buyer says হ্যাঁ/yes/confirm/ji: reply with ORDER_CONFIRMED then say "আপনার অর্ডার নেওয়া হয়েছে! আমরা শীঘ্রই যোগাযোগ করব। ধন্যবাদ 🎉"
-- If buyer says না/no/nah/cancel or anything negative: say "ঠিক আছে, কোনো সমস্যা নেই। অন্য কিছু জানতে চাইলে বলুন 😊" then STOP asking about the order
-- NEVER repeat the order confirmation question after the buyer said no
-- NEVER ask for confirmation more than once
-- If buyer asks to see their order again or says "order dekhao/order ta dekhan" — show the ORDERDATA again with same details
-- Keep track of the order details throughout the conversation
+
+- Wait for buyer response:
+  - If buyer says ঠিক আছে/সব ঠিক/yes/ok/হ্যাঁ: THEN ask "আপনি কি অর্ডার confirm করতে চান?"
+  - If buyer wants to change something: make the change, show updated summary again, ask if everything is fine again
+  - ONLY after buyer approves the details: ask for confirmation
+
+- If buyer says হ্যাঁ/confirm to the confirmation question: reply ORDER_CONFIRMED then say "আপনার অর্ডার নেওয়া হয়েছে! আমরা শীঘ্রই যোগাযোগ করব। ধন্যবাদ 🎉"
+- If buyer says না/no/cancel: say "ঠিক আছে, কোনো সমস্যা নেই। অন্য কিছু জানতে চাইলে বলুন 😊" then STOP
+- NEVER ask confirmation more than once
+- NEVER show empty details — always fill in real values from the conversation
+- If buyer asks to see order again: show the full summary again with all real details
 
 YOUR JOB:
 - Answer questions about products, prices, delivery
@@ -146,8 +162,8 @@ YOUR JOB:
   // 3 layer fallback — tries each one until a reply comes back
   const layers = [
     { type: "openrouter", key: process.env.OPENROUTER_API_KEY },
-    { type: "groq",       key: process.env.GROQ_API_KEY },
-    { type: "groq",       key: process.env.GROQ_API_KEY_2 },
+    { type: "groq", key: process.env.GROQ_API_KEY },
+    { type: "groq", key: process.env.GROQ_API_KEY_2 },
   ];
 
   let reply = null;
