@@ -12,7 +12,6 @@ function WelcomeScreen({ config, onSuggestion }) {
       overflow: "hidden",
     }}>
 
-      {/* Welcome card */}
       <div style={{
         background: "#fff",
         borderRadius: "16px",
@@ -20,9 +19,7 @@ function WelcomeScreen({ config, onSuggestion }) {
         padding: "16px",
         boxShadow: "0 1px 6px rgba(0,0,0,0.06)",
       }}>
-        <p className="text-2xl" style={{textAlign: "center",
-          marginBottom: "8px",
-        }}>
+        <p className="text-2xl" style={{ textAlign: "center", marginBottom: "8px" }}>
           Welcome, How Can I Help You Today?
         </p>
         <p style={{
@@ -33,15 +30,13 @@ function WelcomeScreen({ config, onSuggestion }) {
         </p>
       </div>
 
-      {/* Hint */}
-      <p className="animate-bounce duration-200 ease-in-out" style={{
+      <p className="animate-bounce" style={{
         fontSize: "11px", color: "#212126",
         textAlign: "center", margin: 0,
       }}>
         নিচে লিখুন বা একটি প্রশ্ন বেছে নিন ↓
       </p>
 
-      {/* Suggestion chips — 2 col */}
       <div style={{
         display: "grid",
         gridTemplateColumns: "1fr 1fr",
@@ -56,7 +51,7 @@ function WelcomeScreen({ config, onSuggestion }) {
           "দাম কমবে?",
         ].map((q) => (
           <button
-          className="bg-[#276CF5] hover:bg-[#3E5E9E]"
+            className="bg-[#276CF5] hover:bg-[#3E5E9E]"
             key={q}
             onClick={() => onSuggestion(q)}
             style={{
@@ -159,7 +154,8 @@ function MessageContent({ content }) {
         const trimmed = line.trim();
         if (!trimmed) return null;
 
-        const photoMatch = trimmed.match(/PH[OT]{1,2}O?:\s*(https?:\/\/\S+)/i);
+        // Detect PHOTO: tag
+        const photoMatch = trimmed.match(/PHOTO:\s*(https?:\/\/[^\s]+)/i);
         if (photoMatch) {
           return (
             <img
@@ -176,7 +172,8 @@ function MessageContent({ content }) {
           );
         }
 
-        if (trimmed.startsWith("http") && trimmed.includes("cloudinary")) {
+        // Detect raw cloudinary or image URL on its own line
+        if (trimmed.match(/^https?:\/\/[^\s]+(\.jpg|\.jpeg|\.png|\.webp|\.gif|cloudinary)/i)) {
           return (
             <img
               key={i}
@@ -192,6 +189,30 @@ function MessageContent({ content }) {
           );
         }
 
+        // Detect URL hidden inside markdown link format [text](url)
+        const markdownMatch = trimmed.match(/\[.*?\]\((https?:\/\/[^\s)]+)\)/);
+        if (markdownMatch) {
+          const url = markdownMatch[1];
+          if (url.match(/\.(jpg|jpeg|png|webp|gif)|cloudinary/i)) {
+            return (
+              <img
+                key={i}
+                src={url}
+                alt="Product photo"
+                style={{
+                  borderRadius: "12px", width: "100%",
+                  maxHeight: "200px", objectFit: "cover",
+                  border: "1px solid #f0f0f0", marginTop: "4px",
+                }}
+                onError={(e) => { e.target.style.display = "none"; }}
+              />
+            );
+          }
+        }
+
+        // Hide any remaining raw URLs from showing as text
+        if (trimmed.match(/^https?:\/\//)) return null;
+
         return <span key={i}>{trimmed}</span>;
       })}
     </div>
@@ -199,41 +220,41 @@ function MessageContent({ content }) {
 }
 
 function Message({ msg }) {
-if (msg.role === "system") {
-  const isReceipt = msg.content.includes("✅ অর্ডার সফলভাবে");
+  if (msg.role === "system") {
+    const isReceipt = msg.content.includes("✅ অর্ডার সফলভাবে");
 
-  if (isReceipt) {
+    if (isReceipt) {
+      return (
+        <div style={{ display: "flex", justifyContent: "center", margin: "8px 0 16px" }}>
+          <div style={{
+            background: "#f0fdf4",
+            border: "1px solid #bbf7d0",
+            borderRadius: "16px",
+            padding: "14px 18px",
+            maxWidth: "90%",
+            fontSize: "13px",
+            lineHeight: "1.8",
+            color: "#166534",
+            whiteSpace: "pre-line",
+          }}>
+            {msg.content}
+          </div>
+        </div>
+      );
+    }
+
     return (
-      <div style={{ display: "flex", justifyContent: "center", margin: "8px 0 16px" }}>
-        <div style={{
-          background: "#f0fdf4",
-          border: "1px solid #bbf7d0",
-          borderRadius: "16px",
-          padding: "14px 18px",
-          maxWidth: "90%",
-          fontSize: "13px",
-          lineHeight: "1.8",
-          color: "#166534",
-          whiteSpace: "pre-line",
+      <div style={{ display: "flex", justifyContent: "center", margin: "4px 0 12px" }}>
+        <span style={{
+          fontSize: "11px", color: "#9ca3af",
+          background: "#f3f4f6", borderRadius: "20px",
+          padding: "3px 12px",
         }}>
           {msg.content}
-        </div>
+        </span>
       </div>
     );
   }
-
-  return (
-    <div style={{ display: "flex", justifyContent: "center", margin: "4px 0 12px" }}>
-      <span style={{
-        fontSize: "11px", color: "#9ca3af",
-        background: "#f3f4f6", borderRadius: "20px",
-        padding: "3px 12px",
-      }}>
-        {msg.content}
-      </span>
-    </div>
-  );
-}
 
   const isUser = msg.role === "user";
 
@@ -291,11 +312,8 @@ export default function ChatWindow({ messages, isTyping, config, onSuggestion })
       {isEmpty ? (
         <WelcomeScreen config={config} onSuggestion={onSuggestion} />
       ) : (
-        <div style={{
-          flex: 1,
-          overflowY: "auto",
-          padding: "16px",
-        }}
+        <div
+          style={{ flex: 1, overflowY: "auto", padding: "16px" }}
           className="chat-scroll"
         >
           {messages.map((msg, i) => <Message key={i} msg={msg} />)}
